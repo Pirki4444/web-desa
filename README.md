@@ -1,20 +1,4 @@
-# Sistem Informasi Desa
 
-Aplikasi informasi dan layanan desa berbasis Laravel, MySQL, Docker Compose, dan ProxySQL. Compose menyediakan Glances, Grafana dengan Prometheus, serta backup database harian.
-
-## Push proyek ini ke GitHub
-
-Buat repository kosong di GitHub terlebih dahulu (tanpa README atau file awal lain), lalu dari PowerShell di folder proyek jalankan:
-
-```powershell
-git add -A
-git commit -m "Siapkan aplikasi desa untuk deployment"
-git branch -M main
-git remote add origin https://github.com/USERNAME/NAMA-REPO.git
-git push -u origin main
-```
-
-Ganti `USERNAME/NAMA-REPO` dengan pemilik dan nama repository GitHub. `.env` lokal tidak ikut terunggah.
 
 ## Clone dan jalankan di Ubuntu dalam VMware
 
