@@ -16,8 +16,8 @@ Jalankan di terminal Ubuntu. Ganti URL dengan alamat repository GitHub milikmu:
 sudo apt update
 sudo apt install -y git openssl cron
 sudo systemctl enable --now cron
-git clone https://github.com/USERNAME/NAMA-REPO.git
-cd NAMA-REPO
+git clone https://github.com/Pirki4444/web-desa.git
+cd desa-app
 ```
 
 ### 3. Konfigurasi dan mulai aplikasi
