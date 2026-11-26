@@ -22,13 +22,16 @@ Ganti `USERNAME/NAMA-REPO` dengan pemilik dan nama repository GitHub. `.env` lok
 
 Matikan VM sebelum mengubah pengaturan VMware. Alokasikan **4 vCPU dan 4 GB RAM**, pasang Ubuntu, lalu pastikan VM dapat mengakses internet. Docker Engine dan plugin Docker Compose harus terpasang. Ikuti panduan resmi [instalasi Docker Engine di Ubuntu](https://docs.docker.com/engine/install/ubuntu/) dan [instalasi Compose plugin](https://docs.docker.com/compose/install/linux/) bila belum tersedia.
 
+Pastikan akun Ubuntu yang akan memasang jadwal dapat menjalankan `docker ps` tanpa `sudo`; cron berjalan dengan hak akses akun yang sama.
+
 ### 2. Clone repository
 
 Jalankan di terminal Ubuntu. Ganti URL dengan alamat repository GitHub milikmu:
 
 ```bash
 sudo apt update
-sudo apt install -y git openssl
+sudo apt install -y git openssl cron
+sudo systemctl enable --now cron
 git clone https://github.com/USERNAME/NAMA-REPO.git
 cd NAMA-REPO
 ```
@@ -41,7 +44,13 @@ sed -i "s|^APP_KEY=.*|APP_KEY=base64:$(openssl rand -base64 32 | tr -d '\n')|" .
 sed -i "s|^GRAFANA_ADMIN_PASSWORD=.*|GRAFANA_ADMIN_PASSWORD=$(openssl rand -hex 24)|" .env
 docker compose up --build -d
 docker compose ps
+bash scripts/install-backup-cron.sh
+crontab -l
 ```
+
+Container backup membuat salinan awal saat Compose dimulai. Perintah installer di atas mendaftarkan backup harian pukul 02.00 di crontab VM.
+
+Container `backup` dapat terlihat berstatus `Exited (0)` di `docker compose ps` karena tugas awalnya memang sekali jalan.
 
 Tunggu sampai MySQL berstatus `healthy`, lalu buat tabel dan data demo **satu kali**:
 
@@ -75,7 +84,7 @@ Grafana sudah dipasangi sumber data Prometheus dan dashboard **Infrastruktur Des
 - ProxySQL menjadi jalur koneksi aplikasi ke MySQL. Kedua layanan database hanya tersedia di jaringan internal Compose.
 - Glances menyajikan metrik host/container pada port 61208.
 - Prometheus mengumpulkan metrik VM dari Node Exporter dan metrik container dari cAdvisor; Grafana menyajikannya pada port 3000.
-- Backup membuat dump gzip saat mulai lalu setiap 24 jam; retensi tujuh hari di volume `backup_data`.
+- Backup membuat dump gzip saat Compose dimulai lalu setiap hari pukul 02.00 lewat crontab; retensi tujuh hari di volume `backup_data`.
 
 Panduan rancangan VM dan scaling ada di [CLOUD_DEPLOYMENT.md](CLOUD_DEPLOYMENT.md). Jadwal backup dan langkah pemulihan ada di [BACKUP_AND_RESTORE.md](BACKUP_AND_RESTORE.md).
 
@@ -84,7 +93,7 @@ Panduan rancangan VM dan scaling ada di [CLOUD_DEPLOYMENT.md](CLOUD_DEPLOYMENT.m
 ```bash
 docker compose logs -f app
 docker compose ps
-docker compose exec backup ls -lh /backups
+docker compose run --rm --no-deps --entrypoint ls backup -lh /backups
 docker compose down
 ```
 

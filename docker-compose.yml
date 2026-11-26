@@ -154,9 +154,8 @@ services:
   # Daily MySQL backups retained for seven days in their own Docker volume.
   backup:
     image: mysql:8.0
-    container_name: desa-backup
-    restart: unless-stopped
     entrypoint: ["/bin/sh", "/backup.sh"]
+    command: ["--once"]
     environment:
       DB_HOST: mysql
       DB_DATABASE: desa_app
