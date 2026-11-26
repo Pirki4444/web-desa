@@ -1,0 +1,115 @@
+services:
+  # Laravel Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: desa-app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000", "--no-reload"]
+    environment:
+      - APP_KEY=${APP_KEY:?Copy .env.example to .env and set APP_KEY first}
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - DB_HOST=proxysql
+      - DB_PORT=6033
+      - DB_DATABASE=desa_app
+      - DB_USERNAME=desa_user
+      - DB_PASSWORD=desa_password
+      - SESSION_DRIVER=database
+    depends_on:
+      proxysql:
+        condition: service_started
+    networks:
+      - desa-network
+
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: desa-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: desa_app
+      MYSQL_USER: desa_user
+      MYSQL_PASSWORD: desa_password
+      MYSQL_ROOT_PASSWORD: root_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - desa-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Database proxy: app traffic goes through ProxySQL before reaching MySQL.
+  proxysql:
+    image: proxysql/proxysql:3.0.12
+    container_name: desa-proxysql
+    restart: unless-stopped
+    volumes:
+      - ./proxysql.cnf:/etc/proxysql.cnf:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - desa-network
+
+  # Host and Docker service metrics: CPU, memory, filesystems, processes, containers.
+  monitoring:
+    image: nicolargo/glances:4.5.9-full
+    container_name: desa-monitoring
+    restart: unless-stopped
+    pid: host
+    ports:
+      - "61208:61208"
+    environment:
+      GLANCES_OPT: "-w"
+      TZ: Asia/Jakarta
+    volumes:
+      - /:/rootfs:ro
+      - /etc/os-release:/etc/os-release:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:61208/api/4/all"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - desa-network
+
+  # Daily MySQL backups retained for seven days in their own Docker volume.
+  backup:
+    image: mysql:8.0
+    container_name: desa-backup
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    environment:
+      DB_HOST: mysql
+      DB_DATABASE: desa_app
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root_password
+      BACKUP_INTERVAL_SECONDS: 86400
+      BACKUP_RETENTION_DAYS: 7
+    volumes:
+      - ./docker/backup/backup.sh:/backup.sh:ro
+      - backup_data:/backups
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - desa-network
+
+volumes:
+  mysql_data:
+    driver: local
+  backup_data:
+    driver: local
+
+networks:
+  desa-network:
+    driver: bridge

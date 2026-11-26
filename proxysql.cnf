@@ -1,0 +1,45 @@
+datadir="/var/lib/proxysql"
+
+admin_variables=
+{
+    admin_credentials="admin:admin"
+    mysql_ifaces="127.0.0.1:6032"
+    refresh_interval=2000
+}
+
+mysql_variables=
+{
+    threads=4
+    max_connections=2048
+    interfaces="0.0.0.0:6033"
+    default_schema="desa_app"
+    server_version="8.0.0"
+    connect_timeout_server=10000
+    monitor_username="desa_user"
+    monitor_password="desa_password"
+    monitor_history=60000
+    monitor_connect_interval=200000
+    monitor_ping_interval=200000
+}
+
+mysql_servers=
+(
+    {
+        address="mysql"
+        port=3306
+        hostgroup=10
+        max_connections=200
+    }
+)
+
+mysql_users=
+(
+    {
+        username="desa_user"
+        password="desa_password"
+        default_hostgroup=10
+        transaction_persistent=1
+        max_connections=500
+        active=1
+    }
+)
