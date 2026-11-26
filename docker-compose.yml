@@ -82,6 +82,75 @@ services:
     networks:
       - desa-network
 
+  # Prometheus stores and queries metrics scraped from the VM and containers.
+  prometheus:
+    image: prom/prometheus:v3.15.1
+    container_name: desa-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - node-exporter
+      - cadvisor
+    networks:
+      - desa-network
+
+  # Metrics from the Ubuntu VM host.
+  node-exporter:
+    image: prom/node-exporter:v1.12.1
+    container_name: desa-node-exporter
+    restart: unless-stopped
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+)(/|$)
+    volumes:
+      - /:/host:ro,rslave
+    networks:
+      - desa-network
+
+  # Container CPU and memory metrics for Prometheus.
+  cadvisor:
+    image: ghcr.io/google/cadvisor:v0.61.1
+    container_name: desa-cadvisor
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    networks:
+      - desa-network
+
+  # Grafana dashboards, provisioned with Prometheus as the data source.
+  grafana:
+    image: grafana/grafana:13.3.0
+    container_name: desa-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - desa-network
+
   # Daily MySQL backups retained for seven days in their own Docker volume.
   backup:
     image: mysql:8.0
@@ -108,6 +177,10 @@ volumes:
   mysql_data:
     driver: local
   backup_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
     driver: local
 
 networks:

@@ -1,6 +1,6 @@
 # Sistem Informasi Desa
 
-Aplikasi informasi dan layanan desa berbasis Laravel, MySQL, Docker Compose, dan ProxySQL. Compose juga menyediakan pemantauan Glances dan backup database harian.
+Aplikasi informasi dan layanan desa berbasis Laravel, MySQL, Docker Compose, dan ProxySQL. Compose menyediakan Glances, Grafana dengan Prometheus, serta backup database harian.
 
 ## Push proyek ini ke GitHub
 
@@ -38,6 +38,7 @@ cd NAMA-REPO
 ```bash
 cp .env.example .env
 sed -i "s|^APP_KEY=.*|APP_KEY=base64:$(openssl rand -base64 32 | tr -d '\n')|" .env
+sed -i "s|^GRAFANA_ADMIN_PASSWORD=.*|GRAFANA_ADMIN_PASSWORD=$(openssl rand -hex 24)|" .env
 docker compose up --build -d
 docker compose ps
 ```
@@ -62,16 +63,18 @@ Dari komputer host atau perangkat satu jaringan, buka alamat berikut dan ganti `
 
 - Aplikasi: `http://<IP-VM>:8000`
 - Admin: `http://<IP-VM>:8000/login`
-- Monitoring CPU, memori, disk, dan container: `http://<IP-VM>:61208`
+- Dashboard Grafana: `http://<IP-VM>:3000` (user dan password dari `.env`)
+- Monitoring langsung Glances: `http://<IP-VM>:61208`
 - Pemeriksaan aplikasi/database: `http://<IP-VM>:8000/health`
 
-Jika tidak dapat diakses, atur adapter jaringan VMware ke **Bridged** atau **Host-only** sesuai jaringan, lalu izinkan port 8000 dan 61208 di firewall Ubuntu. Akun admin demo: `admin@desa.id` / `password123`.
+Grafana sudah dipasangi sumber data Prometheus dan dashboard **Infrastruktur Desa**. Dashboard menampilkan CPU, memori, disk VM, status target monitoring, serta CPU dan memori container. Glances tetap berjalan untuk inspeksi langsung. Jika layanan tidak dapat diakses, atur adapter jaringan VMware ke **Bridged** atau **Host-only** sesuai jaringan, lalu izinkan port 8000, 3000, dan 61208 di firewall Ubuntu. Akun admin aplikasi demo: `admin@desa.id` / `password123`.
 
 ## Komponen sistem
 
 - Laravel menerima trafik web pada port 8000.
 - ProxySQL menjadi jalur koneksi aplikasi ke MySQL. Kedua layanan database hanya tersedia di jaringan internal Compose.
 - Glances menyajikan metrik host/container pada port 61208.
+- Prometheus mengumpulkan metrik VM dari Node Exporter dan metrik container dari cAdvisor; Grafana menyajikannya pada port 3000.
 - Backup membuat dump gzip saat mulai lalu setiap 24 jam; retensi tujuh hari di volume `backup_data`.
 
 Panduan rancangan VM dan scaling ada di [CLOUD_DEPLOYMENT.md](CLOUD_DEPLOYMENT.md). Jadwal backup dan langkah pemulihan ada di [BACKUP_AND_RESTORE.md](BACKUP_AND_RESTORE.md).
@@ -85,7 +88,7 @@ docker compose exec backup ls -lh /backups
 docker compose down
 ```
 
-`docker compose down` mempertahankan database dan backup di volume. Jangan gunakan `docker compose down -v` kecuali memang ingin menghapus data tersebut.
+`docker compose down` mempertahankan database, backup, data Prometheus, dan Grafana di volume. Jangan gunakan `docker compose down -v` kecuali memang ingin menghapus data tersebut.
 
 ## Pengaturan sebelum dipakai di luar demo
 
